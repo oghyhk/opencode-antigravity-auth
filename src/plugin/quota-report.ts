@@ -1,12 +1,6 @@
 import type { AccountQuotaResult, QuotaGroup, QuotaGroupSummary } from "./quota";
 import type { AccountMetadataV3, AccountStorageV4 } from "./storage";
 
-const QUOTA_LABELS: Array<[QuotaGroup, string]> = [
-  ["gemini-pro", "gemini-pro"],
-  ["gemini-flash", "gemini-flash"],
-  ["claude", "claude"],
-];
-
 type Status = "healthy" | "warning" | "critical" | "unknown";
 
 function maskEmail(email?: string): string {
@@ -117,45 +111,54 @@ function formatCachedQuota(account: AccountMetadataV3, now: number): string[] {
     return [...lines, "  unavailable"];
   }
 
-  // Find active rate limits that apply to our quota groups
   const activeLimits = getActiveRateLimits(account, now);
 
-  for (const [group, label] of QUOTA_LABELS) {
-    const cached = account.cachedQuota[group];
-    if (cached) {
-      // Create a copy of the quota metadata to apply dynamic overrides
-      const quota = { ...cached };
-      
-      // Determine if there are active rate limits that map to this group.
-      // Rules:
-      // - "claude" maps to any rate limit key containing "claude"
-      // - "gemini-flash" maps to rate limits containing "gemini-3.5-flash", "gemini-3-flash", "gemini-3.1-flash"
-      // - "gemini-pro" maps to rate limits containing "gemini-3.1-pro", "gemini-3-pro", "gemini-3.5-pro"
-      let maxResetTime = 0;
-      let hasLimit = false;
+  const processQuota = (group: QuotaGroup, cached: QuotaGroupSummary) => {
+    const quota = { ...cached };
+    let maxResetTime = 0;
+    let hasLimit = false;
 
-      for (const [key, resetTime] of activeLimits) {
-        const lowerKey = key.toLowerCase();
-        if (group === "claude" && lowerKey.includes("claude")) {
-          hasLimit = true;
-          maxResetTime = Math.max(maxResetTime, resetTime);
-        } else if (group === "gemini-flash" && (lowerKey.includes("flash") || lowerKey.includes("flash-lite"))) {
-          hasLimit = true;
-          maxResetTime = Math.max(maxResetTime, resetTime);
-        } else if (group === "gemini-pro" && lowerKey.includes("pro")) {
-          hasLimit = true;
-          maxResetTime = Math.max(maxResetTime, resetTime);
-        }
+    for (const [key, resetTime] of activeLimits) {
+      const lowerKey = key.toLowerCase();
+      if (group === "claude" && lowerKey.includes("claude")) {
+        hasLimit = true;
+        maxResetTime = Math.max(maxResetTime, resetTime);
+      } else if (group === "gemini-flash" && (lowerKey.includes("flash") || lowerKey.includes("flash-lite"))) {
+        hasLimit = true;
+        maxResetTime = Math.max(maxResetTime, resetTime);
+      } else if (group === "gemini-pro" && lowerKey.includes("pro")) {
+        hasLimit = true;
+        maxResetTime = Math.max(maxResetTime, resetTime);
       }
-
-      if (hasLimit) {
-        quota.remainingFraction = 0;
-        quota.resetTime = new Date(maxResetTime).toISOString();
-      }
-
-      lines.push(...formatQuotaLine(label, quota, now));
     }
+
+    if (hasLimit) {
+      quota.remainingFraction = 0;
+      quota.resetTime = new Date(maxResetTime).toISOString();
+    }
+    return quota;
+  };
+
+  const processedPro = account.cachedQuota["gemini-pro"] ? processQuota("gemini-pro", account.cachedQuota["gemini-pro"]) : null;
+  const processedFlash = account.cachedQuota["gemini-flash"] ? processQuota("gemini-flash", account.cachedQuota["gemini-flash"]) : null;
+  const processedClaude = account.cachedQuota["claude"] ? processQuota("claude", account.cachedQuota["claude"]) : null;
+
+  // Conditionally merge gemini-pro and gemini-flash if they share the exact same quota state
+  if (processedPro && processedFlash && 
+      processedPro.remainingFraction === processedFlash.remainingFraction && 
+      processedPro.resetTime === processedFlash.resetTime) {
+    const mergedQuota = {
+      remainingFraction: processedPro.remainingFraction,
+      resetTime: processedPro.resetTime,
+      modelCount: processedPro.modelCount + processedFlash.modelCount
+    };
+    lines.push(...formatQuotaLine("gemini", mergedQuota, now));
+  } else {
+    if (processedPro) lines.push(...formatQuotaLine("gemini-pro", processedPro, now));
+    if (processedFlash) lines.push(...formatQuotaLine("gemini-flash", processedFlash, now));
   }
+  
+  if (processedClaude) lines.push(...formatQuotaLine("claude", processedClaude, now));
 
   return lines;
 }
