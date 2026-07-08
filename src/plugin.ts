@@ -1564,47 +1564,54 @@ export const createAntigravityPlugin = (providerId: string) => async (
               config.quota_refresh_interval_minutes,
             );
 
+            const activeHeaderStyle = softQuotaCliForced ? "gemini-cli" : preferredHeaderStyle;
+            const activeSoftQuotaThreshold = softQuotaCliForced ? 100 : config.soft_quota_threshold_percent;
+
             let account = accountManager.getCurrentOrNextForFamily(
               family, 
               model, 
               config.account_selection_strategy,
-              preferredHeaderStyle,
+              activeHeaderStyle,
               config.pid_offset_enabled,
-              config.soft_quota_threshold_percent,
+              activeSoftQuotaThreshold,
               softQuotaCacheTtlMs,
             );
 
             if (!account && allowQuotaFallback) {
               const alternateHeaderStyle: HeaderStyle =
-                preferredHeaderStyle === "antigravity" ? "gemini-cli" : "antigravity";
+                activeHeaderStyle === "antigravity" ? "gemini-cli" : "antigravity";
+              const alternateSoftQuotaThreshold = alternateHeaderStyle === "gemini-cli" ? 100 : config.soft_quota_threshold_percent;
+              
               account = accountManager.getCurrentOrNextForFamily(
                 family,
                 model,
                 config.account_selection_strategy,
                 alternateHeaderStyle,
                 config.pid_offset_enabled,
-                config.soft_quota_threshold_percent,
+                alternateSoftQuotaThreshold,
                 softQuotaCacheTtlMs,
               );
               if (account) {
                 pushDebug(
-                  `selected-by-fallback idx=${account.index} preferred=${preferredHeaderStyle} alternate=${alternateHeaderStyle}`,
+                  `selected-by-fallback idx=${account.index} preferred=${activeHeaderStyle} alternate=${alternateHeaderStyle}`,
                 );
               }
             }
             
             if (!account) {
+              // If we are here, we couldn't find an account.
+              // We check if all accounts are over the original soft quota threshold
               if (accountManager.areAllAccountsOverSoftQuota(family, config.soft_quota_threshold_percent, softQuotaCacheTtlMs, model)) {
                 // Before blocking: if Antigravity soft quota is hit and Gemini CLI fallback is
                 // allowed, switch to CLI pool instead of waiting/throwing.
-                if (allowQuotaFallback && family === "gemini" && preferredHeaderStyle === "antigravity") {
+                if (allowQuotaFallback && family === "gemini" && activeHeaderStyle === "antigravity" && !softQuotaCliForced) {
                   const anyAccount = accountManager.getCurrentOrNextForFamily(
                     family,
                     model,
                     config.account_selection_strategy,
                     "gemini-cli",
                     config.pid_offset_enabled,
-                    config.soft_quota_threshold_percent,
+                    100, // bypass soft quota for cli fallback
                     softQuotaCacheTtlMs,
                   );
                   if (anyAccount) {
