@@ -262,14 +262,6 @@ export function aggregateGeminiCliQuota(response: RetrieveUserQuotaResponse): Ge
       continue;
     }
     
-    // Filter out models outside this fork's supported Gemini surface.
-    const modelId = bucket.modelId;
-    const isRelevantModel = modelId.startsWith("gemini-3") || modelId.startsWith("gemini-2.5");
-    
-    if (!isRelevantModel) {
-      continue;
-    }
-    
     models.push({
       modelId: bucket.modelId,
       remainingFraction: normalizeRemainingFraction(bucket.remainingFraction),

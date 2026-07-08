@@ -64,7 +64,7 @@ describe("renderQuotaReport", () => {
     expect(output).toContain("MSK)");
     expect(output).toContain("Account 1: a***@example.com");
     expect(output).not.toContain("andre@example.com");
-    expect(output).toContain("Antigravity Plugin Cache");
+    expect(output).toContain("Primary Pool (Antigravity");
     // Since rateLimitResetTimes has "gemini-antigravity:antigravity-gemini-3-flash" active (reset now + 1h),
     // the cached quota "gemini-flash" (which maps to gemini-flash models) should be overridden to 0%
     expect(output).toContain("░░░░░░░░░░░░░░░░░░░░ 0%");
@@ -73,7 +73,7 @@ describe("renderQuotaReport", () => {
     expect(output).toContain("Gemini CLI");
     expect(output).toContain("gemini-3.5-flash");
     expect(output).toContain("Overall Status: WARNING");
-    expect(output).toContain("Pro Tips");
+    expect(output).toContain("Routing & Fallback Rules");
     expect(output).toContain("gemini-antigravity/antigravity-gemini-3-flash");
     expect(output).not.toContain("gemini-cli/gemini-3.5-flash");
     expect(output).not.toContain("Antigravity live");

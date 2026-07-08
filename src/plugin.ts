@@ -1540,6 +1540,8 @@ export const createAntigravityPlugin = (providerId: string) => async (
             return accountManager.hasOtherAccountWithAntigravityAvailable(currentAccount.index, family, model);
           };
 
+          let softQuotaCliForced = false
+
           while (true) {
             // Check for abort at the start of each iteration
             checkAborted();
@@ -1593,6 +1595,29 @@ export const createAntigravityPlugin = (providerId: string) => async (
             
             if (!account) {
               if (accountManager.areAllAccountsOverSoftQuota(family, config.soft_quota_threshold_percent, softQuotaCacheTtlMs, model)) {
+                // Before blocking: if Antigravity soft quota is hit and Gemini CLI fallback is
+                // allowed, switch to CLI pool instead of waiting/throwing.
+                if (allowQuotaFallback && family === "gemini" && preferredHeaderStyle === "antigravity") {
+                  const anyAccount = accountManager.getCurrentOrNextForFamily(
+                    family,
+                    model,
+                    config.account_selection_strategy,
+                    "gemini-cli",
+                    config.pid_offset_enabled,
+                    config.soft_quota_threshold_percent,
+                    softQuotaCacheTtlMs,
+                  );
+                  if (anyAccount) {
+                    await showToast(
+                      `Antigravity soft quota (${config.soft_quota_threshold_percent}%) reached. Switching to Gemini CLI pool.`,
+                      "warning",
+                    );
+                    softQuotaCliForced = true;
+                    pushDebug(`soft-quota fallback to gemini-cli`);
+                    continue;
+                  }
+                }
+
                 const threshold = config.soft_quota_threshold_percent;
                 const softQuotaWaitMs = accountManager.getMinWaitTimeForSoftQuota(family, threshold, softQuotaCacheTtlMs, model);
                 const maxWaitMs = (config.max_rate_limit_wait_seconds ?? 300) * 1000;
@@ -1876,7 +1901,7 @@ export const createAntigravityPlugin = (providerId: string) => async (
             // - Models with antigravity- prefix -> use Antigravity quota
             // - Gemini models without explicit prefix -> follow cli_first
             // - Claude models -> always use Antigravity
-            let headerStyle = preferredHeaderStyle;
+            let headerStyle: HeaderStyle = softQuotaCliForced ? "gemini-cli" : preferredHeaderStyle;
             pushDebug(`headerStyle=${headerStyle} explicit=${explicitQuota}`);
             if (account.fingerprint) {
               pushDebug(`fingerprint: quotaUser=${account.fingerprint.quotaUser} deviceId=${account.fingerprint.deviceId.slice(0, 8)}...`);
