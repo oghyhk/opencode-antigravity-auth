@@ -2,8 +2,8 @@ import type { AccountQuotaResult, QuotaGroup, QuotaGroupSummary } from "./quota"
 import type { AccountMetadataV3, AccountStorageV4 } from "./storage";
 
 const QUOTA_LABELS: Array<[QuotaGroup, string]> = [
-  ["gemini-flash", "gemini-flash"],
   ["gemini-pro", "gemini-pro"],
+  ["gemini-flash", "gemini-flash"],
   ["claude", "claude"],
 ];
 
@@ -112,7 +112,7 @@ function formatQuotaLine(label: string, quota: QuotaGroupSummary, now: number): 
 }
 
 function formatCachedQuota(account: AccountMetadataV3, now: number): string[] {
-  const lines = ["🎯 Antigravity Plugin Cache:"];
+  const lines = ["🎯 Primary Pool (Antigravity - Used by default):"];
   if (!account.cachedQuota || Object.keys(account.cachedQuota).length === 0) {
     return [...lines, "  unavailable"];
   }
@@ -182,7 +182,7 @@ function getActiveRateLimits(account: AccountMetadataV3, now: number): Array<[st
 
 function formatActiveRateLimits(account: AccountMetadataV3, now: number): string[] {
   const active = getActiveRateLimits(account, now);
-  const lines = ["⚡ Active Rate Limits:"];
+  const lines = ["⚡ Active Rate Limits (Antigravity):"];
   if (active.length === 0) {
     return [...lines, "  none active"];
   }
@@ -200,7 +200,7 @@ function formatActiveRateLimits(account: AccountMetadataV3, now: number): string
 
 function formatGeminiCliQuota(result: AccountQuotaResult | undefined, now: number): string[] {
   const quota = result?.geminiCliQuota;
-  const lines = ["", "📊 Gemini CLI:"];
+  const lines = ["", "📊 Fallback Pool (Gemini CLI - Used on rate limit or cli_first=true):"];
   if (result?.status === "error") {
     return [...lines, `    error: ${result.error}`];
   }
@@ -262,9 +262,10 @@ export function renderQuotaReport(
   }
 
   lines.push("");
-  lines.push("💡 Pro Tips:");
-  lines.push("• Antigravity (🎯) shows quota data cached by opencode-antigravity-auth after plugin OAuth");
-  lines.push("• Gemini CLI (📊) shows live API quota buckets using the same plugin refresh token");
+  lines.push("💡 Routing & Fallback Rules:");
+  lines.push("• Antigravity (🎯) is the primary pool. Claude models always use this pool.");
+  lines.push("• Gemini CLI (📊) is the fallback pool for Gemini models when Antigravity is rate-limited.");
+  lines.push("• Use 'cli_first: true' in config to force Gemini CLI pool usage first.");
 
   return lines.join("\n");
 }
