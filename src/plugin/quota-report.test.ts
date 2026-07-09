@@ -44,6 +44,11 @@ describe("renderQuotaReport", () => {
               resetTime: "2026-05-22T10:00:00.000Z",
               modelCount: 1,
             },
+            "gemini-flash": {
+              remainingFraction: 0.5,
+              resetTime: "2026-05-22T09:00:00.000Z",
+              modelCount: 2,
+            },
           },
         },
         geminiCliQuota: {

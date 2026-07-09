@@ -105,9 +105,17 @@ function formatQuotaLine(label: string, quota: QuotaGroupSummary, now: number): 
   ].filter(Boolean);
 }
 
-function formatCachedQuota(account: AccountMetadataV3, now: number): string[] {
+function formatPrimaryQuota(account: AccountMetadataV3, result: AccountQuotaResult | undefined, now: number): string[] {
   const lines = ["🎯 Primary Pool (Antigravity - Used by default):"];
-  if (!account.cachedQuota || Object.keys(account.cachedQuota).length === 0) {
+  
+  const quotaGroups = result?.quota?.groups && Object.keys(result.quota.groups).length > 0 
+    ? result.quota.groups 
+    : account.cachedQuota;
+
+  if (!quotaGroups || Object.keys(quotaGroups).length === 0) {
+    if (result?.status === "error" || result?.quota?.error) {
+      return [...lines, `    error: ${result?.quota?.error || result?.error || "unavailable"}`];
+    }
     return [...lines, "  unavailable"];
   }
 
@@ -139,9 +147,9 @@ function formatCachedQuota(account: AccountMetadataV3, now: number): string[] {
     return quota;
   };
 
-  const processedPro = account.cachedQuota["gemini-pro"] ? processQuota("gemini-pro", account.cachedQuota["gemini-pro"]) : null;
-  const processedFlash = account.cachedQuota["gemini-flash"] ? processQuota("gemini-flash", account.cachedQuota["gemini-flash"]) : null;
-  const processedClaude = account.cachedQuota["claude"] ? processQuota("claude", account.cachedQuota["claude"]) : null;
+  const processedPro = quotaGroups["gemini-pro"] ? processQuota("gemini-pro", quotaGroups["gemini-pro"]) : null;
+  const processedFlash = quotaGroups["gemini-flash"] ? processQuota("gemini-flash", quotaGroups["gemini-flash"]) : null;
+  const processedClaude = quotaGroups["claude"] ? processQuota("claude", quotaGroups["claude"]) : null;
 
   // Conditionally merge gemini-pro and gemini-flash if they share the exact same quota state
   if (processedPro && processedFlash && 
@@ -221,12 +229,16 @@ function formatGeminiCliQuota(result: AccountQuotaResult | undefined, now: numbe
   return lines;
 }
 
-function getOverallStatus(account: AccountMetadataV3, now: number): Status {
+function getOverallStatus(account: AccountMetadataV3, result: AccountQuotaResult | undefined, now: number): Status {
   if (getActiveRateLimits(account, now).length > 0) {
     return "warning";
   }
 
-  const quotas = Object.values(account.cachedQuota ?? {});
+  const quotaGroups = result?.quota?.groups && Object.keys(result.quota.groups).length > 0 
+    ? result.quota.groups 
+    : account.cachedQuota;
+
+  const quotas = Object.values(quotaGroups ?? {});
   if (quotas.length === 0) {
     return "unknown";
   }
@@ -253,11 +265,11 @@ export function renderQuotaReport(
 
   for (const [index, account] of storage.accounts.entries()) {
     const result = results.find((item) => item.index === index);
-    const overallStatus = getOverallStatus(account, now);
+    const overallStatus = getOverallStatus(account, result, now);
 
     lines.push("");
     lines.push(`Account ${index + 1}: ${maskEmail(account.email)}${account.enabled === false ? " (disabled)" : ""}`);
-    lines.push(...formatCachedQuota(account, now));
+    lines.push(...formatPrimaryQuota(account, result, now));
     lines.push(...formatActiveRateLimits(account, now));
     lines.push(...formatGeminiCliQuota(result, now));
     lines.push("");
