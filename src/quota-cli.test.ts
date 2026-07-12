@@ -57,7 +57,7 @@ describe("runQuotaCli", () => {
 
     expect(exitCode).toBe(0);
     expect(output.join("")).toContain("Account 1: a***@example.com");
-    expect(output.join("")).toContain("gemini-3.5-flash");
+    expect(output.join("")).toContain("gemini");
   });
 });
 

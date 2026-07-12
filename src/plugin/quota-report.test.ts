@@ -76,7 +76,7 @@ describe("renderQuotaReport", () => {
     expect(output).toContain("Reset: 21.05.2026, 13:00:00");
     expect(output).toContain("Active Rate Limits");
     expect(output).toContain("Gemini CLI");
-    expect(output).toContain("gemini-3.5-flash");
+    expect(output).toContain("gemini");
     expect(output).toContain("Overall Status: WARNING");
     expect(output).toContain("Routing & Fallback Rules");
     expect(output).toContain("gemini-antigravity/antigravity-gemini-3-flash");

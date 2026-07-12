@@ -219,11 +219,35 @@ function formatGeminiCliQuota(result: AccountQuotaResult | undefined, now: numbe
     return [...lines, `    ${quota?.error || "unavailable"}`];
   }
 
-  const width = Math.max(...quota.models.map((model) => model.modelId.length), 1);
+  const groups = new Map<string, { remainingFraction: number; resetTime?: string; models: string[] }>();
+  
   for (const model of quota.models) {
+    const key = `${model.remainingFraction}-${model.resetTime ?? ""}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        remainingFraction: model.remainingFraction,
+        resetTime: model.resetTime,
+        models: [],
+      });
+    }
+    groups.get(key)!.models.push(model.modelId);
+  }
+
+  for (const group of groups.values()) {
+    let label = "gemini";
+    if (groups.size > 1) {
+      if (group.models.every(m => m.includes("pro"))) label = "gemini-pro";
+      else if (group.models.every(m => m.includes("flash"))) label = "gemini-flash";
+      else if (group.models.length === 1) label = group.models[0]!;
+      else label = `gemini (${group.models.length} models)`;
+    }
+
     lines.push(
-      `    ${model.modelId.padEnd(width)} ${formatBar(model.remainingFraction)}${formatReset(model.resetTime, now)}`,
+      `  ${getStatusMarker(getStatus(group.remainingFraction))} ${label.padEnd(15)}: ${formatBar(group.remainingFraction)} (${group.models.length} models)`
     );
+    if (group.resetTime) {
+      lines.push(`      Reset: ${formatDate(group.resetTime)}`);
+    }
   }
 
   return lines;
