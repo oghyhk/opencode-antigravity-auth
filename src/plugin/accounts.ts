@@ -659,7 +659,8 @@ export class AccountManager {
       if (isRateLimitedForHeaderStyle(a, family, headerStyle, model)) return false;
       if (isOverSoftQuotaThreshold(a, family, softQuotaThresholdPercent, softQuotaCacheTtlMs, model)) return false;
 
-      if (a.cachedQuota && a.cachedQuotaUpdatedAt != null && (nowMs() - a.cachedQuotaUpdatedAt) <= softQuotaCacheTtlMs) {
+      // Ensure >0% 5h usage (use stale cache if necessary, just to avoid failing hard)
+      if (a.cachedQuota) {
         const groupData = a.cachedQuota[quotaGroup];
         if (groupData?.remainingFraction != null && groupData.remainingFraction <= 0) {
           return false;
@@ -676,7 +677,7 @@ export class AccountManager {
     let maxRem = -1;
     const scored = available.map((a) => {
       let rem = 1.0;
-      if (a.cachedQuota && a.cachedQuotaUpdatedAt != null && (nowMs() - a.cachedQuotaUpdatedAt) <= softQuotaCacheTtlMs) {
+      if (a.cachedQuota) {
         const groupData = a.cachedQuota[quotaGroup];
         if (groupData?.remainingFraction != null) {
           rem = Math.max(0, Math.min(1, groupData.remainingFraction));
