@@ -524,6 +524,22 @@ export class AccountManager {
     }
 
     if (strategy === 'quota-first' || strategy === 'most-quota') {
+      const current = this.getCurrentAccountForFamily(family);
+      if (current) {
+        clearExpiredRateLimits(current);
+        const isLimited = isRateLimitedForHeaderStyle(current, family, headerStyle, model);
+        const isOverThreshold = isOverSoftQuotaThreshold(current, family, softQuotaThresholdPercent, softQuotaCacheTtlMs, model);
+        const isCooling = this.isAccountCoolingDown(current);
+        const quotaGroup = resolveQuotaGroup(family, model);
+        const remainingFraction = current.cachedQuota?.[quotaGroup]?.remainingFraction;
+        const has5hQuota = remainingFraction === undefined || remainingFraction > 0;
+
+        if (!isLimited && !isOverThreshold && !isCooling && has5hQuota) {
+          this.markTouchedForQuota(current, quotaKey);
+          return current;
+        }
+      }
+
       const selected = this.getAccountWithMostQuota(family, model, headerStyle, softQuotaThresholdPercent, softQuotaCacheTtlMs);
       if (selected) {
         this.markTouchedForQuota(selected, quotaKey);

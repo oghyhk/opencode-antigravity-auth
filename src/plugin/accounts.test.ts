@@ -879,6 +879,46 @@ describe("AccountManager", () => {
     });
 
     describe("quota-first strategy", () => {
+      it("sticks to current account while it has >0% quota to preserve prompt cache", () => {
+        const now = Date.now();
+        const stored: AccountStorageV4 = {
+          version: 4,
+          accounts: [
+            {
+              refreshToken: "r1",
+              projectId: "p1",
+              addedAt: 1,
+              lastUsed: 100,
+              cachedQuota: { claude: { remainingFraction: 0.5, modelCount: 1 } },
+              cachedQuotaUpdatedAt: now,
+            },
+            {
+              refreshToken: "r2",
+              projectId: "p2",
+              addedAt: 1,
+              lastUsed: 200,
+              cachedQuota: { claude: { remainingFraction: 0.9, modelCount: 1 } },
+              cachedQuotaUpdatedAt: now,
+            },
+          ],
+          activeIndex: 0,
+          activeIndexByFamily: { claude: 0, gemini: 0 },
+        };
+
+        const manager = new AccountManager(undefined, stored);
+        const first = manager.getCurrentOrNextForFamily("claude", null, "quota-first");
+        expect(first?.index).toBe(0);
+
+        const second = manager.getCurrentOrNextForFamily("claude", null, "quota-first");
+        expect(second?.index).toBe(0); // sticks to account 0 for prompt cache
+
+        // Now exhaust account 0
+        manager.markRateLimited(first!, 60000, "claude");
+
+        const third = manager.getCurrentOrNextForFamily("claude", null, "quota-first");
+        expect(third?.index).toBe(1); // switches to r2 (highest remaining quota)
+      });
+
       it("selects account with highest remaining quota fraction (>0% 5h usage)", () => {
         const now = Date.now();
         const stored: AccountStorageV4 = {
@@ -889,7 +929,7 @@ describe("AccountManager", () => {
               projectId: "p1",
               addedAt: 1,
               lastUsed: 100,
-              cachedQuota: { claude: { remainingFraction: 0.2, modelCount: 1 } },
+              cachedQuota: { claude: { remainingFraction: 0, modelCount: 1 } }, // current account starts exhausted
               cachedQuotaUpdatedAt: now,
             },
             {
@@ -940,7 +980,8 @@ describe("AccountManager", () => {
               cachedQuotaUpdatedAt: now,
             },
           ],
-          activeIndex: 0,
+          activeIndex: -1,
+          activeIndexByFamily: { claude: -1, gemini: -1 },
         };
 
         const manager = new AccountManager(undefined, stored);
@@ -971,7 +1012,8 @@ describe("AccountManager", () => {
               cachedQuotaUpdatedAt: now,
             },
           ],
-          activeIndex: 0,
+          activeIndex: -1,
+          activeIndexByFamily: { claude: -1, gemini: -1 },
         };
 
         const manager = new AccountManager(undefined, stored);
