@@ -657,36 +657,25 @@ export class AccountManager {
       return null;
     }
 
-    available.sort((a, b) => {
-      let remA = 1.0;
-      let remB = 1.0;
-
+    let maxRem = -1;
+    const scored = available.map((a) => {
+      let rem = 1.0;
       if (a.cachedQuota && a.cachedQuotaUpdatedAt != null && (nowMs() - a.cachedQuotaUpdatedAt) <= softQuotaCacheTtlMs) {
-        const groupDataA = a.cachedQuota[quotaGroup];
-        if (groupDataA?.remainingFraction != null) {
-          remA = Math.max(0, Math.min(1, groupDataA.remainingFraction));
+        const groupData = a.cachedQuota[quotaGroup];
+        if (groupData?.remainingFraction != null) {
+          rem = Math.max(0, Math.min(1, groupData.remainingFraction));
         }
       }
-
-      if (b.cachedQuota && b.cachedQuotaUpdatedAt != null && (nowMs() - b.cachedQuotaUpdatedAt) <= softQuotaCacheTtlMs) {
-        const groupDataB = b.cachedQuota[quotaGroup];
-        if (groupDataB?.remainingFraction != null) {
-          remB = Math.max(0, Math.min(1, groupDataB.remainingFraction));
-        }
+      if (rem > maxRem) {
+        maxRem = rem;
       }
-
-      const diff = remB - remA;
-      if (Math.abs(diff) > 0.001) {
-        return diff;
-      }
-
-      const lruDiff = a.lastUsed - b.lastUsed;
-      if (lruDiff !== 0) return lruDiff;
-
-      return a.index - b.index;
+      return { account: a, rem };
     });
 
-    return available[0] ?? null;
+    const topCandidates = scored.filter((item) => Math.abs(item.rem - maxRem) <= 0.001);
+    const randomIndex = Math.floor(Math.random() * topCandidates.length);
+
+    return topCandidates[randomIndex]?.account ?? null;
   }
 
   markRateLimited(

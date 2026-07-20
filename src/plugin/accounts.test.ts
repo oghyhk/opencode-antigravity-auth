@@ -949,7 +949,7 @@ describe("AccountManager", () => {
         expect(selected?.index).toBe(1); // r1 is 0%, so r2 is selected
       });
 
-      it("uses LRU tiebreaker when quota fractions are equal", () => {
+      it("selects randomly among candidates with equal top remaining quota fraction", () => {
         const now = Date.now();
         const stored: AccountStorageV4 = {
           version: 4,
@@ -966,7 +966,7 @@ describe("AccountManager", () => {
               refreshToken: "r2",
               projectId: "p2",
               addedAt: 1,
-              lastUsed: 100, // oldest lastUsed
+              lastUsed: 100,
               cachedQuota: { claude: { remainingFraction: 0.9, modelCount: 1 } },
               cachedQuotaUpdatedAt: now,
             },
@@ -977,7 +977,7 @@ describe("AccountManager", () => {
         const manager = new AccountManager(undefined, stored);
         const selected = manager.getCurrentOrNextForFamily("claude", null, "quota-first");
 
-        expect(selected?.index).toBe(1); // r2 has oldest lastUsed
+        expect([0, 1]).toContain(selected?.index);
       });
     });
   });
