@@ -47,6 +47,10 @@
       "type": "boolean",
       "description": "Automatically send resume prompt after successful recovery."
     },
+    "account_switch_auto_resume": {
+      "default": true,
+      "type": "boolean"
+    },
     "resume_text": {
       "default": "continue",
       "type": "string",

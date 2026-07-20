@@ -150,6 +150,14 @@ export const AntigravityConfigSchema = z.object({
    * @default false
    */
   auto_resume: z.boolean().default(false),
+
+  /**
+   * Resume a failed turn after the plugin switches accounts while retrying it.
+   * This only applies to single-use account-switch recovery markers.
+   *
+   * @default true
+   */
+  account_switch_auto_resume: z.boolean().default(true),
   
   /**
    * Custom text to send when auto-resuming after recovery.
@@ -455,6 +463,7 @@ export const DEFAULT_CONFIG: AntigravityConfig = {
   keep_thinking: false,
   session_recovery: true,
   auto_resume: true,
+  account_switch_auto_resume: true,
   resume_text: "continue",
   empty_response_max_attempts: 4,
   empty_response_retry_delay_ms: 2000,

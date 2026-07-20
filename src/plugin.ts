@@ -43,7 +43,8 @@ import { clearAccounts, loadAccounts, saveAccounts, saveAccountsReplace } from "
 import { AccountManager, type ModelFamily, parseRateLimitReason, calculateBackoffMs, computeSoftQuotaCacheTtlMs } from "./plugin/accounts";
 import { createAutoUpdateCheckerHook } from "./hooks/auto-update-checker";
 import { loadConfig, initRuntimeConfig, type AntigravityConfig } from "./plugin/config";
-import { createSessionRecoveryHook, getRecoverySuccessToast } from "./plugin/recovery";
+import { createSessionRecoveryHook, detectErrorType, getRecoverySuccessToast } from "./plugin/recovery";
+import { AccountSwitchRecoveryRegistry, resumeAfterAccountSwitch } from "./plugin/account-switch-recovery";
 import { checkAccountsQuota } from "./plugin/quota";
 import { initDiskSignatureCache } from "./plugin/cache";
 import { createProactiveRefreshQueue, type ProactiveRefreshQueue } from "./plugin/refresh-queue";
@@ -65,6 +66,7 @@ const MAX_OAUTH_ACCOUNTS = 10;
 const MAX_WARMUP_SESSIONS = 1000;
 const MAX_WARMUP_RETRIES = 2;
 const CAPACITY_BACKOFF_TIERS_MS = [5000, 10000, 20000, 30000, 60000];
+const OPENCODE_SESSION_HEADER = "x-opencode-antigravity-session-id";
 
 function getCapacityBackoffDelay(consecutiveFailures: number): number {
   const index = Math.min(consecutiveFailures, CAPACITY_BACKOFF_TIERS_MS.length - 1);
@@ -1259,6 +1261,7 @@ export const createAntigravityPlugin = (providerId: string) => async (
   
   // Initialize session recovery hook with full context
   const sessionRecovery = createSessionRecoveryHook({ client, directory }, config);
+  const accountSwitchRecovery = new AccountSwitchRecoveryRegistry();
   
   const updateChecker = createAutoUpdateCheckerHook(client, directory, {
     showStartupToast: true,
@@ -1287,13 +1290,13 @@ export const createAntigravityPlugin = (providerId: string) => async (
     }
     
     // Handle session recovery
-    if (sessionRecovery && input.event.type === "session.error") {
+    if (input.event.type === "session.error") {
       const props = input.event.properties as Record<string, unknown> | undefined;
       const sessionID = props?.sessionID as string | undefined;
       const messageID = props?.messageID as string | undefined;
       const error = props?.error;
       
-      if (sessionRecovery.isRecoverableError(error)) {
+      if (sessionRecovery?.isRecoverableError(error)) {
         const messageInfo = {
           id: messageID,
           role: "assistant" as const,
@@ -1306,7 +1309,7 @@ export const createAntigravityPlugin = (providerId: string) => async (
 
         // Only send "continue" AFTER successful tool_result_missing recovery
         // (thinking recoveries already resume inside handleSessionRecovery)
-        if (recovered && sessionID && config.auto_resume) {
+        if (recovered && sessionID && config.auto_resume && detectErrorType(error) === "tool_result_missing") {
           // For tool_result_missing, we need to send continue after injecting tool_results
           await client.session.prompt({
             path: { id: sessionID },
@@ -1327,6 +1330,31 @@ export const createAntigravityPlugin = (providerId: string) => async (
             }).catch(() => {});
           }
         }
+
+        return;
+      }
+
+      if (!config.account_switch_auto_resume || !sessionID) return;
+      try {
+        const recovery = await resumeAfterAccountSwitch({
+          registry: accountSwitchRecovery,
+          client,
+          sessionID,
+          directory,
+          resumeText: config.resume_text,
+        });
+        if (!recovery) return;
+
+        if (config.toast_scope === "root_only" && isChildSession) return;
+        await client.tui.showToast({
+          body: {
+            title: "Account Switched",
+            message: `Continuing with another ${recovery.modelFamily} account...`,
+            variant: "info",
+          },
+        }).catch(() => {});
+      } catch (error) {
+        log.error("Account-switch recovery failed", { error: String(error), sessionID });
       }
     }
   };
@@ -1382,6 +1410,9 @@ export const createAntigravityPlugin = (providerId: string) => async (
 
   return {
     event: eventHandler,
+    "chat.headers": async (input, output) => {
+      output.headers[OPENCODE_SESSION_HEADER] = input.sessionID;
+    },
     tool: {
       google_search: googleSearchTool,
     },
@@ -1456,6 +1487,11 @@ export const createAntigravityPlugin = (providerId: string) => async (
             return fetch(input, init);
           }
 
+          const requestHeaders = new Headers(init?.headers);
+          const sessionID = requestHeaders.get(OPENCODE_SESSION_HEADER) ?? undefined;
+          requestHeaders.delete(OPENCODE_SESSION_HEADER);
+          const requestInit = { ...init, headers: requestHeaders };
+
           const latestAuth = await getAuth();
           if (!isOAuthAuth(latestAuth)) {
             return fetch(input, init);
@@ -1491,7 +1527,10 @@ export const createAntigravityPlugin = (providerId: string) => async (
 
           let lastFailure: FailureContext | null = null;
           let lastError: Error | null = null;
-          const abortSignal = init?.signal ?? undefined;
+          let accountSwitchCandidate:
+            | { sessionID: string; modelFamily: ModelFamily; sourceAccountIndex: number }
+            | undefined;
+          const abortSignal = requestInit.signal ?? undefined;
 
           // Helper to check if request was aborted
           const checkAborted = () => {
@@ -1596,6 +1635,11 @@ export const createAntigravityPlugin = (providerId: string) => async (
                   `selected-by-fallback idx=${account.index} preferred=${activeHeaderStyle} alternate=${alternateHeaderStyle}`,
                 );
               }
+            }
+
+            if (account && accountSwitchCandidate && account.index !== accountSwitchCandidate.sourceAccountIndex) {
+              accountSwitchRecovery.mark(accountSwitchCandidate);
+              accountSwitchCandidate = undefined;
             }
             
             if (!account) {
@@ -1998,7 +2042,7 @@ export const createAntigravityPlugin = (providerId: string) => async (
               try {
                 const prepared = prepareAntigravityRequest(
                   input,
-                  init,
+                  requestInit,
                   accessToken,
                   projectContext.effectiveProjectId,
                   currentEndpoint,
@@ -2318,6 +2362,7 @@ export const createAntigravityPlugin = (providerId: string) => async (
 
                 // Success or non-retryable error - return the response
                 if (response.ok) {
+                  accountSwitchRecovery.clear(sessionID);
                   account.consecutiveFailures = 0;
                   getHealthTracker().recordSuccess(account.index);
                   accountManager.markAccountUsed(account.index);
@@ -2483,6 +2528,14 @@ export const createAntigravityPlugin = (providerId: string) => async (
             } // end headerStyleLoop
             
             if (shouldSwitchAccount) {
+              if (accountCount > 1 && sessionID && lastFailure) {
+                accountSwitchCandidate = {
+                  sessionID,
+                  modelFamily: family,
+                  sourceAccountIndex: account.index,
+                };
+              }
+
               // Avoid tight retry loops when there's only one account.
               if (accountCount <= 1) {
                 if (lastFailure) {

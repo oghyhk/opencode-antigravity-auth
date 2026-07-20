@@ -96,6 +96,10 @@ export interface PluginResult {
     methods: AuthMethod[];
   };
   event?: (payload: PluginEventPayload) => void;
+  "chat.headers"?: (
+    input: { sessionID: string },
+    output: { headers: Record<string, string> },
+  ) => Promise<void>;
   tool?: Record<string, unknown>;
 }
 
