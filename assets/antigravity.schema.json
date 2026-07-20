@@ -161,7 +161,9 @@
       "enum": [
         "sticky",
         "round-robin",
-        "hybrid"
+        "hybrid",
+        "quota-first",
+        "most-quota"
       ]
     },
     "pid_offset_enabled": {

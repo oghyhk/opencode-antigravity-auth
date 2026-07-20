@@ -877,6 +877,109 @@ describe("AccountManager", () => {
         expect(manager.getCurrentAccountForFamily("claude")?.index).toBe(selected?.index);
       });
     });
+
+    describe("quota-first strategy", () => {
+      it("selects account with highest remaining quota fraction (>0% 5h usage)", () => {
+        const now = Date.now();
+        const stored: AccountStorageV4 = {
+          version: 4,
+          accounts: [
+            {
+              refreshToken: "r1",
+              projectId: "p1",
+              addedAt: 1,
+              lastUsed: 100,
+              cachedQuota: { claude: { remainingFraction: 0.2, modelCount: 1 } },
+              cachedQuotaUpdatedAt: now,
+            },
+            {
+              refreshToken: "r2",
+              projectId: "p2",
+              addedAt: 1,
+              lastUsed: 200,
+              cachedQuota: { claude: { remainingFraction: 0.85, modelCount: 1 } },
+              cachedQuotaUpdatedAt: now,
+            },
+            {
+              refreshToken: "r3",
+              projectId: "p3",
+              addedAt: 1,
+              lastUsed: 300,
+              cachedQuota: { claude: { remainingFraction: 0.5, modelCount: 1 } },
+              cachedQuotaUpdatedAt: now,
+            },
+          ],
+          activeIndex: 0,
+        };
+
+        const manager = new AccountManager(undefined, stored);
+        const selected = manager.getCurrentOrNextForFamily("claude", null, "quota-first");
+
+        expect(selected?.index).toBe(1); // r2 has 0.85 (highest remaining quota)
+      });
+
+      it("skips accounts with 0% remaining quota", () => {
+        const now = Date.now();
+        const stored: AccountStorageV4 = {
+          version: 4,
+          accounts: [
+            {
+              refreshToken: "r1",
+              projectId: "p1",
+              addedAt: 1,
+              lastUsed: 100,
+              cachedQuota: { claude: { remainingFraction: 0, modelCount: 1 } },
+              cachedQuotaUpdatedAt: now,
+            },
+            {
+              refreshToken: "r2",
+              projectId: "p2",
+              addedAt: 1,
+              lastUsed: 200,
+              cachedQuota: { claude: { remainingFraction: 0.6, modelCount: 1 } },
+              cachedQuotaUpdatedAt: now,
+            },
+          ],
+          activeIndex: 0,
+        };
+
+        const manager = new AccountManager(undefined, stored);
+        const selected = manager.getCurrentOrNextForFamily("claude", null, "quota-first");
+
+        expect(selected?.index).toBe(1); // r1 is 0%, so r2 is selected
+      });
+
+      it("uses LRU tiebreaker when quota fractions are equal", () => {
+        const now = Date.now();
+        const stored: AccountStorageV4 = {
+          version: 4,
+          accounts: [
+            {
+              refreshToken: "r1",
+              projectId: "p1",
+              addedAt: 1,
+              lastUsed: 500,
+              cachedQuota: { claude: { remainingFraction: 0.9, modelCount: 1 } },
+              cachedQuotaUpdatedAt: now,
+            },
+            {
+              refreshToken: "r2",
+              projectId: "p2",
+              addedAt: 1,
+              lastUsed: 100, // oldest lastUsed
+              cachedQuota: { claude: { remainingFraction: 0.9, modelCount: 1 } },
+              cachedQuotaUpdatedAt: now,
+            },
+          ],
+          activeIndex: 0,
+        };
+
+        const manager = new AccountManager(undefined, stored);
+        const selected = manager.getCurrentOrNextForFamily("claude", null, "quota-first");
+
+        expect(selected?.index).toBe(1); // r2 has oldest lastUsed
+      });
+    });
   });
 
   describe("touchedForQuota tracking", () => {

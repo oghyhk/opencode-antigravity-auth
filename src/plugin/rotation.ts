@@ -201,6 +201,7 @@ export interface AccountWithMetrics {
   healthScore: number;
   isRateLimited: boolean;
   isCoolingDown: boolean;
+  remainingQuotaFraction?: number;
 }
 
 /**
@@ -315,7 +316,8 @@ function calculateHybridScore(
   const tokenComponent = (account.tokens / maxTokens) * 100 * 5; // 0-500
   const secondsSinceUsed = (Date.now() - account.lastUsed) / 1000;
   const freshnessComponent = Math.min(secondsSinceUsed, 3600) * 0.1; // 0-360
-  return Math.max(0, healthComponent + tokenComponent + freshnessComponent);
+  const quotaComponent = (account.remainingQuotaFraction ?? 1.0) * 200; // 0-200
+  return Math.max(0, healthComponent + tokenComponent + freshnessComponent + quotaComponent);
 }
 
 // ============================================================================

@@ -17,8 +17,9 @@ import { z } from "zod";
  * - `sticky`: Use same account until rate-limited. Preserves prompt cache.
  * - `round-robin`: Rotate to next account on every request. Maximum throughput.
  * - `hybrid` (default): Deterministic selection based on health score + token bucket + LRU freshness.
+ * - `quota-first` / `most-quota`: Select account with >0% 5h usage and highest remaining weekly quota.
  */
-export const AccountSelectionStrategySchema = z.enum(['sticky', 'round-robin', 'hybrid']);
+export const AccountSelectionStrategySchema = z.enum(['sticky', 'round-robin', 'hybrid', 'quota-first', 'most-quota']);
 export type AccountSelectionStrategy = z.infer<typeof AccountSelectionStrategySchema>;
 
 /**

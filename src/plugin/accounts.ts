@@ -523,14 +523,25 @@ export class AccountManager {
       return next;
     }
 
+    if (strategy === 'quota-first' || strategy === 'most-quota') {
+      const selected = this.getAccountWithMostQuota(family, model, headerStyle, softQuotaThresholdPercent, softQuotaCacheTtlMs);
+      if (selected) {
+        this.markTouchedForQuota(selected, quotaKey);
+        this.currentAccountIndexByFamily[family] = selected.index;
+        return selected;
+      }
+    }
+
     if (strategy === 'hybrid') {
       const healthTracker = getHealthTracker();
       const tokenTracker = getTokenTracker();
+      const quotaGroup = resolveQuotaGroup(family, model);
       
       const accountsWithMetrics: AccountWithMetrics[] = this.accounts
         .filter(acc => acc.enabled !== false)
         .map(acc => {
           clearExpiredRateLimits(acc);
+          const remainingQuotaFraction = acc.cachedQuota?.[quotaGroup]?.remainingFraction;
           return {
             index: acc.index,
             lastUsed: acc.lastUsed,
@@ -538,6 +549,7 @@ export class AccountManager {
             isRateLimited: isRateLimitedForFamily(acc, family, model) || 
                           isOverSoftQuotaThreshold(acc, family, softQuotaThresholdPercent, softQuotaCacheTtlMs, model),
             isCoolingDown: this.isAccountCoolingDown(acc),
+            remainingQuotaFraction: remainingQuotaFraction !== undefined ? Math.max(0, Math.min(1, remainingQuotaFraction)) : undefined,
           };
         });
 
@@ -610,6 +622,71 @@ export class AccountManager {
     this.cursor++;
     // Note: lastUsed is now updated after successful request via markAccountUsed()
     return account;
+  }
+
+  /**
+   * Select account with >0% 5-hour quota available and highest remaining weekly quota fraction.
+   */
+  getAccountWithMostQuota(
+    family: ModelFamily,
+    model?: string | null,
+    headerStyle: HeaderStyle = "antigravity",
+    softQuotaThresholdPercent: number = 100,
+    softQuotaCacheTtlMs: number = 10 * 60 * 1000,
+  ): ManagedAccount | null {
+    const quotaGroup = resolveQuotaGroup(family, model);
+
+    const available = this.accounts.filter((a) => {
+      clearExpiredRateLimits(a);
+      if (a.enabled === false) return false;
+      if (this.isAccountCoolingDown(a)) return false;
+      if (isRateLimitedForHeaderStyle(a, family, headerStyle, model)) return false;
+      if (isOverSoftQuotaThreshold(a, family, softQuotaThresholdPercent, softQuotaCacheTtlMs, model)) return false;
+
+      if (a.cachedQuota && a.cachedQuotaUpdatedAt != null && (nowMs() - a.cachedQuotaUpdatedAt) <= softQuotaCacheTtlMs) {
+        const groupData = a.cachedQuota[quotaGroup];
+        if (groupData?.remainingFraction != null && groupData.remainingFraction <= 0) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    if (available.length === 0) {
+      return null;
+    }
+
+    available.sort((a, b) => {
+      let remA = 1.0;
+      let remB = 1.0;
+
+      if (a.cachedQuota && a.cachedQuotaUpdatedAt != null && (nowMs() - a.cachedQuotaUpdatedAt) <= softQuotaCacheTtlMs) {
+        const groupDataA = a.cachedQuota[quotaGroup];
+        if (groupDataA?.remainingFraction != null) {
+          remA = Math.max(0, Math.min(1, groupDataA.remainingFraction));
+        }
+      }
+
+      if (b.cachedQuota && b.cachedQuotaUpdatedAt != null && (nowMs() - b.cachedQuotaUpdatedAt) <= softQuotaCacheTtlMs) {
+        const groupDataB = b.cachedQuota[quotaGroup];
+        if (groupDataB?.remainingFraction != null) {
+          remB = Math.max(0, Math.min(1, groupDataB.remainingFraction));
+        }
+      }
+
+      const diff = remB - remA;
+      if (Math.abs(diff) > 0.001) {
+        return diff;
+      }
+
+      const lruDiff = a.lastUsed - b.lastUsed;
+      if (lruDiff !== 0) return lruDiff;
+
+      return a.index - b.index;
+    });
+
+    return available[0] ?? null;
   }
 
   markRateLimited(
