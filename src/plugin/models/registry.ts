@@ -142,6 +142,22 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
     },
   },
   {
+    id: "antigravity-gemini-3.5-flash-lite",
+    name: "Gemini 3.5 Flash-Lite (Antigravity)",
+    limit: { context: 1048576, output: 65536 },
+    modalities: DEFAULT_MODALITIES,
+    variants: {
+      minimal: { thinkingLevel: "minimal" },
+      low: { thinkingLevel: "low" },
+      medium: { thinkingLevel: "medium" },
+      high: { thinkingLevel: "high" },
+    },
+    antigravity: {
+      backendModel: "gemini-3.5-flash-lite",
+      defaultThinkingLevel: "minimal",
+    },
+  },
+  {
     id: "antigravity-claude-sonnet-4-6",
     name: "Claude Sonnet 4.6 (Antigravity)",
     limit: { context: 200000, output: 64000 },

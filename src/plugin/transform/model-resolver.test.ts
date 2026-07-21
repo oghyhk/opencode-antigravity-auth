@@ -169,6 +169,20 @@ describe("resolveModelWithTier", () => {
       expect(result.thinkingLevel).toBe("high");
       expect(result.tier).toBe("high");
     });
+
+    it("antigravity-gemini-3.5-flash-lite uses the public backend id and minimal thinking by default", () => {
+      const result = resolveModelWithTier("antigravity-gemini-3.5-flash-lite");
+      expect(result.actualModel).toBe("gemini-3.5-flash-lite");
+      expect(result.thinkingLevel).toBe("minimal");
+      expect(result.quotaPreference).toBe("antigravity");
+    });
+
+    it("antigravity-gemini-3.5-flash-lite-high keeps the public backend id and uses high thinking", () => {
+      const result = resolveModelWithTier("antigravity-gemini-3.5-flash-lite-high");
+      expect(result.actualModel).toBe("gemini-3.5-flash-lite");
+      expect(result.thinkingLevel).toBe("high");
+      expect(result.tier).toBe("high");
+    });
   });
 
   describe("Claude thinking models default budget", () => {
