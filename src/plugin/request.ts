@@ -1079,10 +1079,18 @@ export function prepareAntigravityRequest(
                   : {}),
               };
             } else if (tierThinkingLevel) {
-              // Gemini 3 uses thinkingLevel string (low/medium/high)
+              // Gemini 3 uses thinkingLevel string (low/medium/high) - tiered model
               thinkingConfig = {
                 includeThoughts: normalizedThinking.includeThoughts,
                 thinkingLevel: tierThinkingLevel,
+              };
+            } else if (isGemini3) {
+              // Gemini 3 without tier suffix - use default thinkingLevel "high"
+              // Sending thinkingBudget (Gemini 2.5 format) to Gemini 3 causes
+              // truncated/erratic responses. The API needs thinkingLevel.
+              thinkingConfig = {
+                includeThoughts: normalizedThinking.includeThoughts,
+                thinkingLevel: "high",
               };
             } else {
               // Gemini 2.5 and others use numeric budget

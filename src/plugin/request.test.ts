@@ -717,10 +717,10 @@ it("removes x-api-key header", () => {
       );
 
       const wrapped = JSON.parse(result.init.body as string);
-      expect(wrapped.model).toBe("gemini-3.5-flash-low");
+      expect(wrapped.model).toBe("gemini-3-flash-agent");
       expect(wrapped.request.generationConfig.thinkingConfig).toEqual({
         includeThoughts: true,
-        thinkingLevel: "minimal",
+        thinkingLevel: "high",
       });
     });
 
@@ -751,10 +751,10 @@ it("removes x-api-key header", () => {
       );
 
       const wrapped = JSON.parse(result.init.body as string);
-      expect(wrapped.model).toBe("gemini-3.5-flash-low");
+      expect(wrapped.model).toBe("gemini-3-flash-agent");
       expect(wrapped.request.generationConfig.thinkingConfig).toEqual({
         includeThoughts: true,
-        thinkingLevel: "minimal",
+        thinkingLevel: "high",
       });
     });
 
@@ -1079,7 +1079,7 @@ it("removes x-api-key header", () => {
         expect(result.effectiveModel).toBe("gemini-3-flash");
       });
 
-      it("transforms gemini-3-pro-preview to gemini-3-pro-low for antigravity headerStyle", () => {
+      it("transforms gemini-3-pro-preview to gemini-3-pro-high for antigravity headerStyle", () => {
         const result = prepareAntigravityRequest(
           "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent",
           { method: "POST", body: JSON.stringify({ contents: [] }) },
@@ -1088,7 +1088,7 @@ it("removes x-api-key header", () => {
           undefined,
           "antigravity"
         );
-        expect(result.effectiveModel).toBe("gemini-3-pro-low");
+        expect(result.effectiveModel).toBe("gemini-3-pro-high");
       });
 
       it("transforms gemini-3.1-pro-preview to gemini-3.1-pro-low for antigravity headerStyle", () => {
@@ -1124,7 +1124,7 @@ it("removes x-api-key header", () => {
           undefined,
           "antigravity"
         );
-        expect(result.effectiveModel).toBe("gemini-3.5-flash-low");
+        expect(result.effectiveModel).toBe("gemini-3-flash-agent");
       });
 
       it("transforms gemini-3-flash to gemini-3-flash-preview for gemini-cli headerStyle", () => {

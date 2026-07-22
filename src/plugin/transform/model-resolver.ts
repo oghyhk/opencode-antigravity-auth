@@ -237,7 +237,7 @@ export function resolveModelWithTier(requestedModel: string, options: ModelResol
     if (isEffectiveGemini3) {
       return {
         actualModel: resolvedModel,
-        thinkingLevel: registryDefaultThinkingLevel ?? "low",
+        thinkingLevel: registryDefaultThinkingLevel ?? "high",
         isThinkingModel: true,
         quotaPreference,
         explicitQuota,
