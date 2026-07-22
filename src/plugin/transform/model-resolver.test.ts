@@ -156,33 +156,20 @@ describe("resolveModelWithTier", () => {
       expect(result.tier).toBe("high");
     });
 
-    it("antigravity-gemini-3.6-flash uses the public backend id and high thinking by default", () => {
+    it("antigravity-gemini-3.6-flash resolves to tiered backend and high thinking by default", () => {
       const result = resolveModelWithTier("antigravity-gemini-3.6-flash");
-      expect(result.actualModel).toBe("gemini-3.6-flash");
+      expect(result.actualModel).toBe("gemini-3.6-flash-high");
       expect(result.thinkingLevel).toBe("high");
       expect(result.quotaPreference).toBe("antigravity");
     });
 
-    it("antigravity-gemini-3.6-flash-high keeps the public backend id and uses high thinking", () => {
+    it("antigravity-gemini-3.6-flash-high resolves to tiered backend and uses high thinking", () => {
       const result = resolveModelWithTier("antigravity-gemini-3.6-flash-high");
-      expect(result.actualModel).toBe("gemini-3.6-flash");
+      expect(result.actualModel).toBe("gemini-3.6-flash-high");
       expect(result.thinkingLevel).toBe("high");
       expect(result.tier).toBe("high");
     });
 
-    it("antigravity-gemini-3.5-flash-lite uses the public backend id and high thinking by default", () => {
-      const result = resolveModelWithTier("antigravity-gemini-3.5-flash-lite");
-      expect(result.actualModel).toBe("gemini-3.5-flash-lite");
-      expect(result.thinkingLevel).toBe("high");
-      expect(result.quotaPreference).toBe("antigravity");
-    });
-
-    it("antigravity-gemini-3.5-flash-lite-high keeps the public backend id and uses high thinking", () => {
-      const result = resolveModelWithTier("antigravity-gemini-3.5-flash-lite-high");
-      expect(result.actualModel).toBe("gemini-3.5-flash-lite");
-      expect(result.thinkingLevel).toBe("high");
-      expect(result.tier).toBe("high");
-    });
   });
 
   describe("Claude thinking models default budget", () => {

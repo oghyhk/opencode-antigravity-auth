@@ -137,13 +137,18 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
       high: { thinkingLevel: "high" },
     },
     antigravity: {
-      backendModel: "gemini-3.6-flash",
       defaultThinkingLevel: "high",
+      backendModelsByThinkingLevel: {
+        low: "gemini-3.6-flash-low",
+        medium: "gemini-3.6-flash-medium",
+        high: "gemini-3.6-flash-high",
+      },
     },
   },
   {
     id: "antigravity-gemini-3.5-flash-lite",
     name: "Gemini 3.5 Flash-Lite (Antigravity)",
+    enabled: false,
     limit: { context: 1048576, output: 65536 },
     modalities: DEFAULT_MODALITIES,
     variants: {
