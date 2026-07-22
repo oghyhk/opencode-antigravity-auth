@@ -82,7 +82,7 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
       high: { thinkingLevel: "high" },
     },
     antigravity: {
-      defaultThinkingLevel: "high",
+      defaultThinkingLevel: "low",
       backendModelsByThinkingLevel: {
         low: "gemini-3.1-pro-low",
         high: "gemini-3.1-pro-high",
