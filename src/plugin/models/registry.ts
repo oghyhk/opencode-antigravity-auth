@@ -65,7 +65,7 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
       high: { thinkingLevel: "high" },
     },
     antigravity: {
-      defaultThinkingLevel: "low",
+      defaultThinkingLevel: "high",
       backendModelsByThinkingLevel: {
         low: "gemini-3-pro-low",
         high: "gemini-3-pro-high",
@@ -82,7 +82,7 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
       high: { thinkingLevel: "high" },
     },
     antigravity: {
-      defaultThinkingLevel: "low",
+      defaultThinkingLevel: "high",
       backendModelsByThinkingLevel: {
         low: "gemini-3.1-pro-low",
         high: "gemini-3.1-pro-high",
@@ -102,7 +102,7 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
     },
     antigravity: {
       backendModel: "gemini-3-flash",
-      defaultThinkingLevel: "low",
+      defaultThinkingLevel: "high",
     },
   },
   {
@@ -138,7 +138,7 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
     },
     antigravity: {
       backendModel: "gemini-3.6-flash",
-      defaultThinkingLevel: "medium",
+      defaultThinkingLevel: "high",
     },
   },
   {
@@ -154,7 +154,7 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
     },
     antigravity: {
       backendModel: "gemini-3.5-flash-lite",
-      defaultThinkingLevel: "minimal",
+      defaultThinkingLevel: "high",
     },
   },
   {
@@ -235,7 +235,7 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
     },
     antigravity: {
       backendModel: "gemini-3.1-flash",
-      defaultThinkingLevel: "low",
+      defaultThinkingLevel: "high",
     },
   },
   {
@@ -248,7 +248,7 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
       high: { thinkingLevel: "high" },
     },
     antigravity: {
-      defaultThinkingLevel: "low",
+      defaultThinkingLevel: "high",
       backendModelsByThinkingLevel: {
         low: "gemini-3.5-pro-low",
         high: "gemini-3.5-pro-high",
